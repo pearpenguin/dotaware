@@ -2,7 +2,7 @@
 Thin wrapper to make requests to Steam's web API.
 Prerequisites:
     Set an appropriate STEAM_APIKEY environment variable.
-    Requires Tornado framework for async HTTP requests
+    Requires Tornado framework (running IOLoop) for async HTTP requests
 '''
 import logging
 import sys
@@ -19,13 +19,13 @@ APIKEY = os.environ.get('STEAM_APIKEY')
 if not APIKEY:
     print("Specify the 'STEAM_APIKEY' environment variable.")
     sys.exit(1)
-logging.info("STEAM_APIKEY={}".format(APIKEY))
+logger.info("STEAM_APIKEY={}".format(APIKEY))
 
 BASE_URL = 'http://api.steampowered.com'
 DOTA2_ID = 'IDOTA2Match_570'
 CLIENT = AsyncHTTPClient()
 
-def build_endpoint(endpoint, params={}):
+def build_endpoint(endpoint):
     '''
     Builds a conforming URL for this API, game ID, and method
     '''
@@ -42,6 +42,7 @@ def async_request(url, params={}):
     req = '{}?{}'.format(url, urlencode(query))
     logger.debug(req)
     res = yield CLIENT.fetch(req)
+    #TODO: handle exceptions
     return json.loads(res.body.decode())
     
 
@@ -55,6 +56,6 @@ def get_live_league_games():
     logger.debug('')
     url = build_endpoint('/'.join([DOTA2_ID, 'GetLiveLeagueGames', 'v1']))
     data = yield async_request(url)
-    logger.debug(data) #TODO: remove
+    #logger.debug(data) #TODO: remove
     return data
 
