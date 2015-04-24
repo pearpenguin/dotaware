@@ -33,7 +33,7 @@ class EndpointsTestCase(AsyncTestCase):
         #Check that the request is logged as DEBUG
         with self.assertLogs(logger, logging.DEBUG) as log:
             data = yield steamapi.async_request(TEST_URL)
-        self.assertEqual(type(data), dict)
+        self.assertTrue(isinstance(data, dict))
         req = '{}?key={}'.format(TEST_URL, steamapi.APIKEY)
         self.assertEqual(len(log.records), 1)
         self.assertEqual(req, log.records[0].getMessage())
