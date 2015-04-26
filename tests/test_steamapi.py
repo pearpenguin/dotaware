@@ -5,7 +5,6 @@ from tornado.testing import AsyncTestCase, gen_test
 from tornado.ioloop import IOLoop
 from tornado.httpclient import AsyncHTTPClient
 
-logger = logging.getLogger('dotaware')
 TEST_URL = ('http://api.steampowered.com/IDOTA2Match_570/'
     'GetLiveLeagueGames/v1')
 
@@ -31,7 +30,7 @@ class EndpointsTestCase(AsyncTestCase):
         #Make AsyncHTTPClient use this test's IOLoop
         steamapi.CLIENT = AsyncHTTPClient(self.io_loop)
         #Check that the request is logged as DEBUG
-        with self.assertLogs(logger, logging.DEBUG) as log:
+        with self.assertLogs(level=logging.DEBUG) as log:
             data = yield steamapi.async_request(TEST_URL)
         self.assertTrue(isinstance(data, dict))
         req = '{}?key={}'.format(TEST_URL, steamapi.APIKEY)
