@@ -62,7 +62,7 @@ class DotaHandler(WebSocketHandler):
     #Live games
     active_games = {}
     #Completed games but not yet persisted into DB
-    inactive_games = {}
+    inactive_games = {} #TODO: persist inactive games
     #Summarized games (without detailed scoreboard)
     simple_games = {}
     #All connected WebSocket clients
@@ -146,13 +146,15 @@ class WebHandler(RequestHandler):
 def main():
     #Setup root logger to log to file
     logger = logging.getLogger()
+    #Clear any handlers that may have been configured by imports
+    logger.handlers = []
     logger.setLevel(logging.DEBUG)
     fhandler = logging.FileHandler('dotaware.log')
     formatter = logging.Formatter(
         '%(asctime)s [%(levelname)s] (%(funcName)s): %(message)s')
     fhandler.setFormatter(formatter)
     logger.addHandler(fhandler)
-    #Log levels more than WARNING to stderr as well
+    #Log levels more than WARNING to stdout as well
     handler = logging.StreamHandler()
     handler.setLevel(logging.WARNING)
     handler.setFormatter(formatter)
@@ -163,10 +165,13 @@ def main():
     updater = ioloop.PeriodicCallback(get_live_dota_games, 10000)
     updater.start()
     #Start app
-    app = Application([
-        URLSpec(r'/', WebHandler),
-        URLSpec(r'/dota', DotaHandler),
-    ])
+    app = Application(
+        [
+            URLSpec(r'/', WebHandler),
+            URLSpec(r'/dota', DotaHandler),
+        ],
+        static_path="./static",
+    )
     app.listen(8080)
     loop = ioloop.IOLoop.current()
     loop.start()
