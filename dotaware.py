@@ -151,7 +151,7 @@ def main():
     logger.setLevel(logging.DEBUG)
     fhandler = logging.FileHandler('dotaware.log')
     formatter = logging.Formatter(
-        '%(asctime)s [%(levelname)s] (%(funcName)s): %(message)s')
+        '[%(levelname)s] %(asctime)s (%(module)s.%(funcName)s): %(message)s')
     fhandler.setFormatter(formatter)
     logger.addHandler(fhandler)
     #Log levels more than WARNING to stdout as well
