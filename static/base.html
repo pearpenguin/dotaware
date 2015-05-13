@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Dotaware</title>
+    <script src="/static/js/mithril.js"></script>
+    <script src="/static/js/dota.js"></script>
+</head>
+<body>
+</body>
+<script>
+    //Init WebSocket
+    var socket = new WebSocket("ws://" + window.location.host + "/dota")
+    socket.onmessage = function(ev) {
+        data = JSON.parse(ev.data);
+        console.log(data); //TODO: remove
+        switch (data.event) {
+            case 'dota.update_list':
+                dota.vm.update_gamelist(data.updates, data.new_games);
+                break;
+        }
+    };
+</script>
+</html>

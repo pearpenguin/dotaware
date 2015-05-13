@@ -15,8 +15,9 @@ def make_simple_game(game):
     '''
     Make a summarized game dict without the scoreboard
     '''
+
+    simple_game = dict(game)
     try:
-        simple_game = dict(game)
         simple_game['duration'] = simple_game['scoreboard']['duration']
         del simple_game['scoreboard']
     except KeyError:
@@ -71,23 +72,18 @@ class DotaHandler(WebSocketHandler):
     def open(self):
         logging.debug("Dota WebSocket opened")
         self.clients.add(self)
-        self.send_simple_games()
+        self.send_updates(new_games=self.simple_games)
 
     def on_close(self):
         logging.debug("Dota WebSocket closed")
         self.clients.remove(self)
 
-    def send_simple_games(self):
+    def send_updates(self, updates={}, new_games={}):
         '''
-        Send the summarized games dict to this client
-        '''
-        self.write_message({'simple_games': self.simple_games})
-
-    def send_updates(self, updates, new_games={}):
-        '''
-        Send dict of updates to this client
+        Send dict of updates and/or new games to this client
         '''
         self.write_message({
+            'event': 'dota.update_list',
             'updates': updates,
             'new_games': new_games,
         })
@@ -171,6 +167,7 @@ def main():
             URLSpec(r'/dota', DotaHandler),
         ],
         static_path="./static",
+        debug=True
     )
     app.listen(8080)
     loop = ioloop.IOLoop.current()
