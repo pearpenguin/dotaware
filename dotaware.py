@@ -11,17 +11,19 @@ def get_live_dota_games():
     games = res['result']['games']
     DotaHandler.sync_games(games)
 
-def make_simple_game(game):
+def make_simple_game(game, update=None):
     '''
-    Make a summarized game dict without the scoreboard
+    Make a summarized game dict without the scoreboard (for new games)
     '''
 
     simple_game = dict(game)
     try:
-        simple_game['duration'] = simple_game['scoreboard']['duration']
         del simple_game['scoreboard']
     except KeyError:
         pass #Games that haven't started have no scoreboard
+    if update is None:
+        update = make_update(game)
+    simple_game.update(update)
 
     return simple_game
 
@@ -34,11 +36,21 @@ def make_update(game):
         '''
         Extract certain fields from the scoreboard
         '''
+        def sort_player_key(player):
+            return int(player['player_slot'])
+
         try:
+            #Sort players into order and only retain account_id key
+            sorted_players = sorted(team['players'], key=sort_player_key)
+            players = []
+            for player in sorted_players:
+                players.append(player['account_id'])
+                
             return {
                 'score': team['score'],
                 'tower_state': team['tower_state'],
                 'barracks_state': team['barracks_state'],
+                'players': players,
             }
         except KeyError:
             #TODO: API may have changed, log/inform devs
@@ -47,6 +59,7 @@ def make_update(game):
     update = {}
     try:
         update['spectators'] = game['spectators']
+        update['players'] = game['players']
         if 'scoreboard' in game:
             update['duration'] = game['scoreboard']['duration']
             update['radiant'] = extract_team_stat(
@@ -105,7 +118,8 @@ class DotaHandler(WebSocketHandler):
         Also remove scoreboard details, making a small
         summarized dict suitable for public serving.
         '''
-        active_games = {} #New dict of games
+        active_games = {} #Currently active games
+        simple_games = {} #Currently active games
         updates = {} #Compact dict to update clients
         new_games = {} #New games not seen before, send as simple_game
         for game in games:
@@ -115,21 +129,25 @@ class DotaHandler(WebSocketHandler):
                 #TODO: log + notify devs, API may have changed
                 pass
             active_games[match_id] = game
-            #Summarize the game by removing scoreboard
-            simple_game = make_simple_game(game)
-            cls.simple_games[match_id] = simple_game
+            #Make compact update dict with minimal info
+            update = make_update(game)
+            #Summarize the game by removing scoreboard and add update
+            simple_game = make_simple_game(game, update)
+            simple_games[match_id] = simple_game
             #Remove games which are still active, leftover are inactive
             if match_id in cls.active_games:
+                #Send the update packet
+                updates[match_id] = update
                 del cls.active_games[match_id]
-                #Make compact update dict with minimal info
-                updates[match_id] = make_update(game)
             else:
                 #Make note of any new games, to be sent to clients
                 new_games[match_id] = simple_game
+                #New games require no update packet
 
         #Sync the inactive/active games
         cls.inactive_games.update(cls.active_games)
         cls.active_games = active_games
+        cls.simple_games = simple_games
         
         #Update all clients with new game states
         cls.update_clients(updates, new_games)
