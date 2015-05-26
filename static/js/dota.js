@@ -107,13 +107,18 @@ var dota = (function() {
         },
         //Update the whole game list
         update_gamelist: function(updates, new_games) {
+            //Store active games in new list to remove inactive games
+            var active_games = {};
             //Get new games first, updates of the new games may follow
             for (match_id in new_games) {
-                games[match_id] = new Game(new_games[match_id]);
+                active_games[match_id] = new Game(new_games[match_id]);
             }
+            //TODO: handle case of trying to update a missing game
             for (match_id in updates) {
                 games[match_id].update(updates[match_id]);
+                active_games[match_id] = games[match_id];
             }
+            games = active_games;
             console.log(games); //TODO: remove
             m.render(document.body, view_games());
         },
