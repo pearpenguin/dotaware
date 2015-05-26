@@ -21,7 +21,9 @@ if not APIKEY:
 logging.info("STEAM_APIKEY={}".format(APIKEY))
 
 BASE_URL = 'http://api.steampowered.com'
-DOTA2_ID = 'IDOTA2Match_570'
+DOTA2_ID = '570'
+DOTA2_MATCH = 'IDOTA2Match_' + DOTA2_ID
+DOTA2_ECON = 'IEconDOTA2_' + DOTA2_ID
 CLIENT = AsyncHTTPClient()
 
 def build_endpoint(endpoint):
@@ -53,8 +55,18 @@ def get_live_league_games():
     Returns a Future containing the response body.
     '''
     logging.debug('')
-    url = build_endpoint('/'.join([DOTA2_ID, 'GetLiveLeagueGames', 'v1']))
+    url = build_endpoint('/'.join([DOTA2_MATCH, 'GetLiveLeagueGames', 'v1']))
     data = yield async_request(url)
     #logging.debug(data) #TODO: remove
     return data
 
+@gen.coroutine
+def get_heroes():
+    '''
+    Calls GetHeroes to get the list of hero IDs and names
+    '''
+    logging.debug('')
+    url = build_endpoint('/'.join([DOTA2_ECON, 'GetHeroes', 'v1']))
+    data = yield async_request(url)
+    logging.debug(data) #TODO: remove
+    return data

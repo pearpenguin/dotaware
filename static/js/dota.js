@@ -126,6 +126,7 @@ var dota = (function() {
 
     /* View functions */
     function v_simple_game_table(game) {
+
         //Return rows of players for the game table
         function v_player_rows() {
             //Number of rows is the team which has the most players
@@ -145,6 +146,7 @@ var dota = (function() {
             }
             return rows;
         }
+
         return m("table", [
             //Team names + scores
             m("tr", [
