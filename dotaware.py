@@ -27,45 +27,49 @@ def make_simple_game(game, update=None):
 
     return simple_game
 
+def extract_team_stat(team):
+    '''
+    Extract a team scoreboard in the 'scoreboard' key
+    '''
+    def sort_player_key(player):
+        return int(player['player_slot'])
+
+    try:
+        #Sort players into order and only retain account_id key
+        sorted_players = sorted(team['players'], key=sort_player_key)
+        players = []
+        for player in sorted_players:
+            players.append({'account_id': player['account_id']})
+            
+        return {
+            'score': team['score'],
+            'tower_state': team['tower_state'],
+            'barracks_state': team['barracks_state'],
+            #TODO: don't update players if duration > 0
+            'players': players,
+        }
+    except KeyError:
+        #TODO: API may have changed, log/inform devs
+        return {}
+
 def make_update(game):
     '''
     Make an update dict (summarized) for the specified game dict
     '''
 
-    def extract_team_stat(team):
-        '''
-        Extract certain fields from the scoreboard
-        '''
-        def sort_player_key(player):
-            return int(player['player_slot'])
-
-        try:
-            #Sort players into order and only retain account_id key
-            sorted_players = sorted(team['players'], key=sort_player_key)
-            players = []
-            for player in sorted_players:
-                players.append(player['account_id'])
-                
-            return {
-                'score': team['score'],
-                'tower_state': team['tower_state'],
-                'barracks_state': team['barracks_state'],
-                'players': players,
-            }
-        except KeyError:
-            #TODO: API may have changed, log/inform devs
-            return {}
-
     update = {}
     try:
         update['spectators'] = game['spectators']
         update['players'] = game['players']
+        #Simplify the scoreboard
         if 'scoreboard' in game:
-            update['duration'] = game['scoreboard']['duration']
-            update['radiant'] = extract_team_stat(
+            scoreboard = {}
+            scoreboard['duration'] = game['scoreboard']['duration']
+            scoreboard['radiant'] = extract_team_stat(
                 game['scoreboard']['radiant'])
-            update['dire'] = extract_team_stat(
+            scoreboard['dire'] = extract_team_stat(
                 game['scoreboard']['dire'])
+            update['scoreboard'] = scoreboard
     except KeyError:
         #TODO: API may have changed, log/inform devs
         pass

@@ -31,35 +31,37 @@ var dota = (function() {
     };
     Game.prototype.radiant_player = function(slot) {
         try {
-            return this.game.players[this.game.radiant.players[slot]];
+            var id = this.game.scoreboard.radiant.players[slot].account_id;
+            return this.game.players[id];
         } catch (e){
             return undefined;
         }
     };
     Game.prototype.dire_player = function(slot) {
         try {
-            return this.game.players[this.game.dire.players[slot]];
+            var id = this.game.scoreboard.dire.players[slot].account_id;
+            return this.game.players[id];
         } catch (e){
             return undefined;
         }
     };
     Game.prototype.num_radiant_players = function() {
         try {
-            return this.game.radiant.players.length;
+            return this.game.scoreboard.radiant.players.length;
         } catch (e){
             return 0;
         }
     };
     Game.prototype.num_dire_players = function() {
         try {
-            return this.game.dire.players.length;
+            return this.game.scoreboard.dire.players.length;
         } catch (e){
             return 0;
         }
     };
     Game.prototype.duration = function() {
         try {
-            return this.game.duration;
+            return this.game.scoreboard.duration;
         } catch (e){
             return 0;
         }
@@ -80,14 +82,14 @@ var dota = (function() {
     };
     Game.prototype.radiant_score = function() {
         try {
-            return this.game.radiant.score;
+            return this.game.scoreboard.radiant.score;
         } catch (e){
             return undefined;
         }
     };
     Game.prototype.dire_score = function() {
         try {
-            return this.game.dire.score;
+            return this.game.scoreboard.dire.score;
         } catch (e){
             return undefined;
         }
