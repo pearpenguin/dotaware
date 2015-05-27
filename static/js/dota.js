@@ -1,5 +1,6 @@
 var dota = (function() {
     var games = {};
+    var leagues = {};
     
     function Game(game) {
         this.game = game; //simple_game structure
@@ -124,6 +125,12 @@ var dota = (function() {
             console.log(games); //TODO: remove
             m.render(document.body, view_games());
         },
+        update_leagues: function(new_leagues) {
+            console.log(new_leagues); //TODO: remove
+            for (league_id in new_leagues) {
+                leagues[league_id] = new_leagues[league_id];
+            }
+        },
     };
 
     /* View functions */
@@ -135,8 +142,7 @@ var dota = (function() {
             var num_r = game.num_radiant_players();
             var num_d = game.num_dire_players();
             var max = num_r > num_d ? num_r : num_d;
-            var rows = [];
-            var row, radiant_player, dire_player, r_name, d_name;
+            var rows = [], row;
             for (var i = 0; i < max; i++) {
                 row = m("tr", [
                     m("td", game.radiant_player_name(i)),

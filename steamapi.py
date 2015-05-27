@@ -70,3 +70,17 @@ def get_heroes():
     data = yield async_request(url)
     logging.debug(data) #TODO: remove
     return data
+
+@gen.coroutine
+def get_league_listing():
+    '''
+    Calls GetLeagueListing for data of DotaTV supported leagues.
+    Returns a list of leagues
+    '''
+
+    logging.debug('')
+    url = build_endpoint('/'.join([DOTA2_MATCH, 'GetLeagueListing', 'v1']))
+    data = yield async_request(url)
+    logging.debug(data) #TODO: remove
+    return data
+

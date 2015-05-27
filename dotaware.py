@@ -6,9 +6,22 @@ from tornado import ioloop
 import steamapi
 
 @tornado.gen.coroutine
+def get_dota_leagues():
+    res = yield steamapi.get_league_listing()
+    try:
+        leagues = res['result']['leagues']
+    except KeyError:
+        logging.error("Unexpected format in SteamAPI call")
+    DotaHandler.sync_leagues(leagues)
+    
+@tornado.gen.coroutine
 def get_live_dota_games():
     res = yield steamapi.get_live_league_games()
-    games = res['result']['games']
+    try:
+        games = res['result']['games']
+    except KeyError:
+        logging.error("Unexpected format in SteamAPI call")
+        #TODO: inform devs
     DotaHandler.sync_games(games)
 
 def make_simple_game(game, update=None):
@@ -83,19 +96,25 @@ class DotaHandler(WebSocketHandler):
     inactive_games = {} #TODO: persist inactive games
     #Summarized games (without detailed scoreboard)
     simple_games = {}
+    #League listing
+    leagues = {}
+    #Ref counted leauges with currently listed games
+    active_leagues = {}
     #All connected WebSocket clients
     clients = set()
 
     def open(self):
         logging.debug("Dota WebSocket opened")
         self.clients.add(self)
-        self.send_updates(new_games=self.simple_games)
+        #Build the active leagues
+        leagues = {l: self.leagues[l] for l in self.active_leagues}
+        self.send_updates(new_games=self.simple_games, new_leagues=leagues)
 
     def on_close(self):
         logging.debug("Dota WebSocket closed")
         self.clients.remove(self)
 
-    def send_updates(self, updates={}, new_games={}):
+    def send_updates(self, updates={}, new_games={}, new_leagues={}):
         '''
         Send dict of updates and/or new games to this client
         '''
@@ -103,17 +122,18 @@ class DotaHandler(WebSocketHandler):
             'event': 'dota.update_list',
             'updates': updates,
             'new_games': new_games,
+            'new_leagues': new_leagues,
         })
 
     @classmethod
-    def update_clients(cls, updates, new_games):
+    def update_clients(cls, updates, new_games, new_leagues):
         '''
-        Update clients with new game states and new games
+        Update clients with new game states and new active leagues
         '''
 
         logging.debug("Updating {} Dota clients".format(len(cls.clients)))
         for client in cls.clients:
-            client.send_updates(updates, new_games)
+            client.send_updates(updates, new_games, new_leagues)
 
     @classmethod
     def sync_games(cls, games):
@@ -126,9 +146,11 @@ class DotaHandler(WebSocketHandler):
         simple_games = {} #Currently active games
         updates = {} #Compact dict to update clients
         new_games = {} #New games not seen before, send as simple_game
+        new_leagues = {} #New active leagues
         for game in games:
             try:
                 match_id = game['match_id']
+                league_id = game['league_id']
             except KeyError:
                 #TODO: log + notify devs, API may have changed
                 pass
@@ -147,14 +169,42 @@ class DotaHandler(WebSocketHandler):
                 #Make note of any new games, to be sent to clients
                 new_games[match_id] = simple_game
                 #New games require no update packet
+                #Find the league this game belongs to, increase refcnt
+                try:
+                    cls.active_leagues[league_id] += 1
+                except KeyError:
+                    cls.active_leagues[league_id] = 1
+                    new_leagues[league_id] = cls.leagues[league_id]
 
+        #TODO: refactor the cleanup of inactive games
+        #Lower refcnt for leagues in which games have become inactive
+        for game in cls.active_games.values():
+            try:
+                league_id = game['league_id']
+            except KeyError:
+                pass #TODO log + notify devs, API may have changed
+            cls.active_leagues[league_id] -= 1
+            if cls.active_leagues[league_id] == 0:
+                del cls.active_leagues[league_id]
         #Sync the inactive/active games
         cls.inactive_games.update(cls.active_games)
         cls.active_games = active_games
         cls.simple_games = simple_games
         
         #Update all clients with new game states
-        cls.update_clients(updates, new_games)
+        cls.update_clients(updates, new_games, new_leagues)
+
+    @classmethod
+    def sync_leagues(cls, leagues):
+        '''
+        Syncs leagues from Steam API
+        '''
+
+        try:
+            cls.leagues = {l['leagueid']: l for l in leagues}
+            logging.debug(cls.leagues) #TODO: remove
+        except KeyError:
+            pass #TODO: log + inform devs (API changed?)
 
 class WebHandler(RequestHandler):
 
@@ -182,6 +232,8 @@ def main():
     #Setup the Dota games manager and periodic updaters
     updater = ioloop.PeriodicCallback(get_live_dota_games, 10000)
     updater.start()
+    #ioloop.PeriodicCallback(get_dota_leagues, 30000).start()
+    get_dota_leagues()
     #Start app
     app = Application(
         [
