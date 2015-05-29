@@ -3,7 +3,7 @@ var dota = (function() {
     var leagues = {};
     
     function Game(game) {
-        this.game = game; //simple_game structure
+        this.game = game; //Game structure
         this.map_players(); //Map players on creation
     }
     //convert array of players into object with account_id as keys
@@ -15,6 +15,13 @@ var dota = (function() {
             players[player.account_id] = player;
         }
         this.game.players = players;
+    };
+    Game.prototype.league_id = function() {
+        try {
+            return this.game.league_id;
+        } catch (e){
+            return undefined;
+        }
     };
     Game.prototype.radiant_player_name = function(slot) {
         try {
@@ -125,7 +132,9 @@ var dota = (function() {
             console.log(games); //TODO: remove
             m.render(document.body, view_games());
         },
+        //Store newly active leagues, remove unused leagues
         update_leagues: function(new_leagues) {
+            console.log("new leagues");
             console.log(new_leagues); //TODO: remove
             for (league_id in new_leagues) {
                 leagues[league_id] = new_leagues[league_id];
@@ -169,9 +178,11 @@ var dota = (function() {
 
     function v_simple_game(match_id) {
         var game = games[match_id];
+        var league = leagues[game.league_id()];
+        var league_name = league ? league.name : "";
         return m("li", [
             //League name, duration of game
-            //m("div", game.league_id),
+            m("div", league_name),
             m("div", game.duration()),
             //Team scores and players table
             v_simple_game_table(game),
@@ -190,6 +201,7 @@ var dota = (function() {
         vm: vm,
         controller: vm.init,
         games: games,
+        leagues: leagues,
     };
 
 })();

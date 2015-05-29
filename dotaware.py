@@ -98,7 +98,7 @@ class DotaHandler(WebSocketHandler):
     simple_games = {}
     #League listing
     leagues = {}
-    #Ref counted leauges with currently listed games
+    #Ref counted leagues with currently active games
     active_leagues = {}
     #All connected WebSocket clients
     clients = set()
@@ -108,7 +108,8 @@ class DotaHandler(WebSocketHandler):
         self.clients.add(self)
         #Build the active leagues
         leagues = {l: self.leagues[l] for l in self.active_leagues}
-        self.send_updates(new_games=self.simple_games, new_leagues=leagues)
+        self.send_updates(new_games=self.simple_games, 
+            new_leagues=self.get_current_leagues())
 
     def on_close(self):
         logging.debug("Dota WebSocket closed")
@@ -125,10 +126,20 @@ class DotaHandler(WebSocketHandler):
             'new_leagues': new_leagues,
         })
 
+    def get_current_leagues(self):
+        '''
+        Returns the league info of currently active leagues
+        '''
+        leagues = {}
+        for league_id in self.active_leagues:
+            leagues[league_id] = self.leagues[league_id]
+        return leagues
+
     @classmethod
     def update_clients(cls, updates, new_games, new_leagues):
         '''
-        Update clients with new game states and new active leagues
+        Update clients with new game states, new active leagues,
+        and leagues to remove
         '''
 
         logging.debug("Updating {} Dota clients".format(len(cls.clients)))
@@ -192,6 +203,8 @@ class DotaHandler(WebSocketHandler):
         cls.simple_games = simple_games
         
         #Update all clients with new game states
+        logging.debug(new_leagues) #TODO: remove
+        logging.debug(cls.active_leagues) #TODO: remove
         cls.update_clients(updates, new_games, new_leagues)
 
     @classmethod
