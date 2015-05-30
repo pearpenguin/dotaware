@@ -16,8 +16,8 @@
         console.log(data); //TODO: remove
         switch (data.event) {
             case 'dota.update_list':
-                dota.vm.update_gamelist(data.updates, data.new_games);
                 dota.vm.update_leagues(data.new_leagues);
+                dota.vm.update_gamelist(data.updates, data.new_games);
                 break;
         }
     };

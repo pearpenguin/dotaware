@@ -2,6 +2,24 @@ var dota = (function() {
     var games = {};
     var leagues = {};
     
+    function League(league) {
+        this.name = this.sanitize_name(league.name);
+        this.leagueid = league.leagueid;
+        this.description = league.description;
+        this.tournament_url = league.tournament_url;
+        this.itemdef = league.itemdef;
+    }
+    //Remove tags from league name and convert underscore to spaces
+    League.prototype.sanitize_name = function(name) {
+        /*e.g. 
+            "#DOTA_Item_joinDOTA_League_Season_3"
+            "joinDOTA League Season 3"
+        */
+        name = name.replace("#DOTA_Item_", "");
+        name = name.replace(/_/g, " ");
+        return name;
+    };
+    
     function Game(game) {
         this.game = game; //Game structure
         this.map_players(); //Map players on creation
@@ -19,6 +37,20 @@ var dota = (function() {
     Game.prototype.league_id = function() {
         try {
             return this.game.league_id;
+        } catch (e){
+            return undefined;
+        }
+    };
+    Game.prototype.radiant_hero = function(slot) {
+        try {
+            return this.radiant_player(slot).hero_id;
+        } catch (e){
+            return undefined;
+        }
+    };
+    Game.prototype.dire_hero = function(slot) {
+        try {
+            return this.dire_player(slot).hero_id;
         } catch (e){
             return undefined;
         }
@@ -67,12 +99,25 @@ var dota = (function() {
             return 0;
         }
     };
+    //Return duration as float
     Game.prototype.duration = function() {
         try {
             return this.game.scoreboard.duration;
         } catch (e){
             return 0;
         }
+    };
+    //Display duration in mins and secs
+    Game.prototype.duration_str = function() {
+        var duration;
+        try {
+            duration = this.game.scoreboard.duration;
+        } catch (e){
+            return "0";
+        }
+        var mins = Math.floor(duration / 60);
+        var secs = Math.floor(duration % 60);
+        return mins + "m " + secs + "s";
     };
     Game.prototype.radiant_name = function() {
         try {
@@ -132,14 +177,15 @@ var dota = (function() {
             console.log(games); //TODO: remove
             m.render(document.body, view_games());
         },
-        //Store newly active leagues, remove unused leagues
+        //Store newly active leagues
         update_leagues: function(new_leagues) {
             console.log("new leagues");
             console.log(new_leagues); //TODO: remove
             for (league_id in new_leagues) {
-                leagues[league_id] = new_leagues[league_id];
+                leagues[league_id] = new League(new_leagues[league_id]);
             }
         },
+        //TODO: garbage collect unused leagues
     };
 
     /* View functions */
@@ -155,6 +201,8 @@ var dota = (function() {
             for (var i = 0; i < max; i++) {
                 row = m("tr", [
                     m("td", game.radiant_player_name(i)),
+                    m("td", game.radiant_hero(i)),
+                    m("td", game.dire_hero(i)),
                     //TODO: radiant player hero
                     //TODO: dire player hero
                     m("td", game.dire_player_name(i)),
@@ -183,7 +231,7 @@ var dota = (function() {
         return m("li", [
             //League name, duration of game
             m("div", league_name),
-            m("div", game.duration()),
+            m("div", game.duration_str()),
             //Team scores and players table
             v_simple_game_table(game),
         ]);
