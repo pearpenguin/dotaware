@@ -198,13 +198,16 @@ var dota = (function() {
             var num_d = game.num_dire_players();
             var max = num_r > num_d ? num_r : num_d;
             var rows = [], row;
+            var cls_hero_img = ".dota-hero.dota-hero-"
             for (var i = 0; i < max; i++) {
                 row = m("tr", [
                     m("td", game.radiant_player_name(i)),
-                    m("td", game.radiant_hero(i)),
-                    m("td", game.dire_hero(i)),
-                    //TODO: radiant player hero
-                    //TODO: dire player hero
+                    m("td", [
+                        m("div" + cls_hero_img + game.radiant_hero(i)),
+                    ]),
+                    m("td", [
+                        m("div" + cls_hero_img + game.dire_hero(i)),
+                    ]),
                     m("td", game.dire_player_name(i)),
                 ]);
                 rows.push(row);
