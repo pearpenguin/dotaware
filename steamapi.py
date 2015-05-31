@@ -81,6 +81,6 @@ def get_league_listing():
     logging.debug('')
     url = build_endpoint('/'.join([DOTA2_MATCH, 'GetLeagueListing', 'v1']))
     data = yield async_request(url)
-    logging.debug(data) #TODO: remove
+    #logging.debug(data) #TODO: remove
     return data
 

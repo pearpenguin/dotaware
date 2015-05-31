@@ -227,8 +227,7 @@ var dota = (function() {
         ].concat(v_player_rows()));
     }
 
-    function v_simple_game(match_id) {
-        var game = games[match_id];
+    function v_simple_game(game) {
         var league = leagues[game.league_id()];
         var league_name = league ? league.name : "";
         return m("li", [
@@ -240,10 +239,30 @@ var dota = (function() {
         ]);
     }
 
+    //Sort function for games by descending duration
+    function sort_duration_desc(game1, game2) {
+        //game1 comes first if it has higher duration
+        var dur1 = game1.duration(), dur2 = game2.duration();
+        if (dur1 > dur2)
+            return -1;
+        else if (dur2 > dur1)
+            return 1;
+        else
+            return 0;
+    }
+
     function view_games() {
         var matches = [];
+        //Put games in a list and order them
+        var ordering = []; 
         for (match_id in games) {
-            matches.push(v_simple_game(match_id));
+            ordering.push(games[match_id]);
+        }
+        //Sort by descending duration. TODO: offer other sort methods
+        ordering.sort(sort_duration_desc);
+        //Render the matches
+        for (idx in ordering) {
+            matches.push(v_simple_game(ordering[idx]));
         }
         return m("ul", matches)
     };

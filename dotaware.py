@@ -99,6 +99,8 @@ class DotaHandler(WebSocketHandler):
     #League listing
     leagues = {}
     #Ref counted leagues with currently active games
+    leagues_refcnt = {}
+    #Active leagues
     active_leagues = {}
     #All connected WebSocket clients
     clients = set()
@@ -106,10 +108,8 @@ class DotaHandler(WebSocketHandler):
     def open(self):
         logging.debug("Dota WebSocket opened")
         self.clients.add(self)
-        #Build the active leagues
-        leagues = {l: self.leagues[l] for l in self.active_leagues}
         self.send_updates(new_games=self.simple_games, 
-            new_leagues=self.get_current_leagues())
+            new_leagues=self.active_leagues)
 
     def on_close(self):
         logging.debug("Dota WebSocket closed")
@@ -126,14 +126,18 @@ class DotaHandler(WebSocketHandler):
             'new_leagues': new_leagues,
         })
 
-    def get_current_leagues(self):
+    @classmethod
+    def build_active_leagues(cls):
         '''
-        Returns the league info of currently active leagues
+        Builds the league info of currently active leagues
         '''
-        leagues = {}
-        for league_id in self.active_leagues:
-            leagues[league_id] = self.leagues[league_id]
-        return leagues
+        for league_id in cls.leagues_refcnt:
+            try:
+                cls.active_leagues[league_id] = cls.leagues[league_id]
+            except KeyError:
+                #League listing is not up to date
+                # TODO: schedule an update of new leagues
+                pass
 
     @classmethod
     def update_clients(cls, updates, new_games, new_leagues):
@@ -182,10 +186,10 @@ class DotaHandler(WebSocketHandler):
                 #New games require no update packet
                 #Find the league this game belongs to, increase refcnt
                 try:
-                    cls.active_leagues[league_id] += 1
+                    cls.leagues_refcnt[league_id] += 1
                 except KeyError:
-                    cls.active_leagues[league_id] = 1
-                    # Leagues may not be up to date
+                    cls.leagues_refcnt[league_id] = 1
+                    # Leagues may not be up to date yet
                     if league_id in cls.leagues:
                         new_leagues[league_id] = cls.leagues[league_id]
 
@@ -196,17 +200,20 @@ class DotaHandler(WebSocketHandler):
                 league_id = game['league_id']
             except KeyError:
                 pass #TODO log + notify devs, API may have changed
-            cls.active_leagues[league_id] -= 1
-            if cls.active_leagues[league_id] == 0:
-                del cls.active_leagues[league_id]
+            cls.leagues_refcnt[league_id] -= 1
+            if cls.leagues_refcnt[league_id] == 0:
+                del cls.leagues_refcnt[league_id]
+
+        #Build currently active leagues
+        cls.build_active_leagues()
         #Sync the inactive/active games
         cls.inactive_games.update(cls.active_games)
         cls.active_games = active_games
         cls.simple_games = simple_games
         
         #Update all clients with new game states
-        logging.debug(new_leagues) #TODO: remove
-        logging.debug(cls.active_leagues) #TODO: remove
+        #logging.debug(new_leagues) #TODO: remove
+        #logging.debug(cls.active_leagues) #TODO: remove
         cls.update_clients(updates, new_games, new_leagues)
 
     @classmethod
@@ -217,7 +224,7 @@ class DotaHandler(WebSocketHandler):
 
         try:
             cls.leagues = {l['leagueid']: l for l in leagues}
-            logging.debug(cls.leagues) #TODO: remove
+            #logging.debug(cls.leagues) #TODO: remove
         except KeyError:
             pass #TODO: log + inform devs (API changed?)
 
