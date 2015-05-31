@@ -185,7 +185,9 @@ class DotaHandler(WebSocketHandler):
                     cls.active_leagues[league_id] += 1
                 except KeyError:
                     cls.active_leagues[league_id] = 1
-                    new_leagues[league_id] = cls.leagues[league_id]
+                    # Leagues may not be up to date
+                    if league_id in cls.leagues:
+                        new_leagues[league_id] = cls.leagues[league_id]
 
         #TODO: refactor the cleanup of inactive games
         #Lower refcnt for leagues in which games have become inactive
