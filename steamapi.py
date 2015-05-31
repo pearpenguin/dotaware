@@ -21,6 +21,7 @@ if not APIKEY:
 logging.info("STEAM_APIKEY={}".format(APIKEY))
 
 BASE_URL = 'http://api.steampowered.com'
+STEAM_REMOTE_STORAGE = 'ISteamRemoteStorage'
 DOTA2_ID = '570'
 DOTA2_MATCH = 'IDOTA2Match_' + DOTA2_ID
 DOTA2_ECON = 'IEconDOTA2_' + DOTA2_ID
@@ -34,10 +35,21 @@ def build_endpoint(endpoint):
     return req
 
 @gen.coroutine
+def request(url, params={}):
+    '''
+    Asynchronously make a request to any URL to get arbitrary resources
+    using AsyncHTTPClient.
+    '''
+    req = '{}?{}'.format(url, urlencode(params))
+    logging.debug(req)
+    res = yield CLIENT.fetch(req)
+    return res.body
+
+@gen.coroutine
 def async_request(url, params={}):
     '''
-    Asynchronously make a request.
-    Decodes the result and returns it as a dict
+    Asynchronously make a request to Steam API.
+    Decodes the result and returns it as a dict.
     '''
     query = dict(params, key=APIKEY)
     req = '{}?{}'.format(url, urlencode(query))
@@ -84,3 +96,17 @@ def get_league_listing():
     #logging.debug(data) #TODO: remove
     return data
 
+@gen.coroutine
+def get_ugc_file_details(ugcid):
+    '''
+    Get UGC file details (filename, download path) for a Dota2 UGC File
+    '''
+
+    logging.debug('')
+    url = build_endpoint('/'.join([STEAM_REMOTE_STORAGE, 
+        'GetUGCFileDetails', 'v1']))
+    data = yield async_request(url, {
+        'appid': DOTA2_ID,
+        'ugcid': str(ugcid),
+    })
+    return data

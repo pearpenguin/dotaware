@@ -119,6 +119,20 @@ var dota = (function() {
         var secs = Math.floor(duration % 60);
         return mins + "m " + secs + "s";
     };
+    Game.prototype.radiant_logo = function() {
+        try {
+            return this.game.radiant_team.logo_url;
+        } catch (e){
+            return undefined;
+        }
+    };
+    Game.prototype.dire_logo = function() {
+        try {
+            return this.game.dire_team.logo_url;
+        } catch (e){
+            return undefined;
+        }
+    };
     Game.prototype.radiant_name = function() {
         try {
             return this.game.radiant_team.team_name;
@@ -215,13 +229,26 @@ var dota = (function() {
             return rows;
         }
 
+        //Display team logos if available
+        //TODO: scale logos properly
+        var logo_url;
+        var radiant = [game.radiant_name()];
+        logo_url = game.radiant_logo();
+        if (logo_url)
+            radiant.push(m("img", {src: logo_url}));
+        var dire = [game.dire_name()];
+        logo_url = game.dire_logo();
+        if (logo_url)
+            dire.push(m("img", {src: logo_url}));
+                
         return m("table", [
+            //Team names and logos if available
             //Team names + scores
             m("tr", [
-                m("td", game.radiant_name()),
+                m("td", radiant),
                 m("td", game.radiant_score()),
                 m("td", game.dire_score()),
-                m("td", game.dire_name()),
+                m("td", dire),
             ])
             //Players
         ].concat(v_player_rows()));

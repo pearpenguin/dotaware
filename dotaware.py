@@ -1,10 +1,25 @@
 import logging
 import tornado.gen
+import os.path
 from tornado.web import RequestHandler, Application, URLSpec
 from tornado.websocket import WebSocketHandler
 from tornado import ioloop
 import steamapi
 
+#Real path to static dir
+WEB_STATIC_PATH = "./static"
+LOGOS_DIR = '/'.join([WEB_STATIC_PATH, 'img', 'team-logos'])
+#Mount directory for static dir (relative to site root)
+WEB_STATIC_MOUNT = "static"
+LOOP = ioloop.IOLoop.current()
+
+def convert_to_url(static_path):
+    '''
+    Convert a static path relative to CWD (or absolute path)
+    to a public accessible URL.
+    '''
+    return static_path.replace(WEB_STATIC_PATH, '/'+WEB_STATIC_MOUNT, 1)
+    
 @tornado.gen.coroutine
 def get_dota_leagues():
     res = yield steamapi.get_league_listing()
@@ -24,9 +39,52 @@ def get_live_dota_games():
         #TODO: inform devs
     DotaHandler.sync_games(games)
 
+@tornado.gen.coroutine
+def dl_team_logo(path, logo_id):
+    '''
+    Retrieve the URL for the team logo using Steam API UGC file info.
+    Download the logo and save to static path
+    '''
+    logging.debug("Downloading logo to '{}' (logo_id = {})".format(path, logo_id))
+    ugc_data = yield steamapi.get_ugc_file_details(logo_id)
+    logo = yield steamapi.request(ugc_data['data']['url'])
+    with open(path, 'wb') as f:
+        f.write(logo)
+    #TODO: Inform DotaHandler that this logo has been updated
+
+def get_logo_path(team_id):
+    '''
+    Return the path (relative to CWD) to this team's logo
+    '''
+
+    return "{}/{}".format(LOGOS_DIR, team_id)
+
+def add_team_logo(team):
+    '''
+    Add the logo path to a team dictionary.
+    Schedule request to download the logo if not available.
+    '''
+    try:
+        #Team has no logo (UGC ID of 0 means unavailable)
+        if not team['team_logo']:
+            return
+    except KeyError:
+        return
+
+    path = get_logo_path(team['team_id'])
+    #Convert path to public URL
+    url = convert_to_url(path)
+    if os.path.isfile(path):
+        team['logo_url'] = url
+    else:
+        LOOP.add_callback(dl_team_logo, path, team['team_logo'])
+        
+    
 def make_simple_game(game, update=None):
     '''
     Make a summarized game dict without the scoreboard (for new games)
+    If available, include static path to team logo. Otherwise schedule
+    Steam API request to download the team logo.
     '''
 
     simple_game = dict(game)
@@ -34,6 +92,14 @@ def make_simple_game(game, update=None):
         del simple_game['scoreboard']
     except KeyError:
         pass #Games that haven't started have no scoreboard
+    try:
+        add_team_logo(simple_game['radiant_team'])
+    except KeyError:
+        pass
+    try:
+        add_team_logo(simple_game['dire_team'])
+    except KeyError:
+        pass
     if update is None:
         update = make_update(game)
     simple_game.update(update)
@@ -234,6 +300,9 @@ class WebHandler(RequestHandler):
         self.write('<p>{}</p>'.format(repr(DotaHandler.active_games)))
 
 def main():
+    #Setup directories that are not versioned
+    if not os.path.isdir(LOGOS_DIR):
+        os.makedirs(LOGOS_DIR)
     #Setup root logger to log to file
     logger = logging.getLogger()
     #Clear any handlers that may have been configured by imports
@@ -262,12 +331,11 @@ def main():
             URLSpec(r'/', WebHandler),
             URLSpec(r'/dota', DotaHandler),
         ],
-        static_path="./static",
+        static_path=WEB_STATIC_PATH,
         debug=True
     )
     app.listen(8080)
-    loop = ioloop.IOLoop.current()
-    loop.start()
+    LOOP.start()
 
 if __name__ == '__main__':
     main()
