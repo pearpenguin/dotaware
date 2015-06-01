@@ -40,7 +40,7 @@ def get_live_dota_games():
     DotaHandler.sync_games(games)
 
 @tornado.gen.coroutine
-def dl_team_logo(path, logo_id):
+def dl_team_logo(team_id, path, logo_id):
     '''
     Retrieve the URL for the team logo using Steam API UGC file info.
     Download the logo and save to static path
@@ -50,7 +50,14 @@ def dl_team_logo(path, logo_id):
     logo = yield steamapi.request(ugc_data['data']['url'])
     with open(path, 'wb') as f:
         f.write(logo)
-    #TODO: Inform DotaHandler that this logo has been updated
+
+def init_team_logo(team_id, *args):
+    '''
+    Initial retrieval of team logo requires signalling the DotaHandler
+    '''
+    logging.debug("Initializing team logo for team '{}'".format(team_id))
+    dl_team_logo(team_id, *args)
+    DotaHandler.add_team_logo(team_id)
 
 def get_logo_path(team_id):
     '''
@@ -71,40 +78,16 @@ def add_team_logo(team):
     except KeyError:
         return
 
-    path = get_logo_path(team['team_id'])
+    team_id = team['team_id']
+    path = get_logo_path(team_id)
     #Convert path to public URL
     url = convert_to_url(path)
     if os.path.isfile(path):
         team['logo_url'] = url
     else:
-        LOOP.add_callback(dl_team_logo, path, team['team_logo'])
+        LOOP.add_callback(init_team_logo, team_id, path, team['team_logo'])
         
     
-def make_simple_game(game, update=None):
-    '''
-    Make a summarized game dict without the scoreboard (for new games)
-    If available, include static path to team logo. Otherwise schedule
-    Steam API request to download the team logo.
-    '''
-
-    simple_game = dict(game)
-    try:
-        del simple_game['scoreboard']
-    except KeyError:
-        pass #Games that haven't started have no scoreboard
-    try:
-        add_team_logo(simple_game['radiant_team'])
-    except KeyError:
-        pass
-    try:
-        add_team_logo(simple_game['dire_team'])
-    except KeyError:
-        pass
-    if update is None:
-        update = make_update(game)
-    simple_game.update(update)
-
-    return simple_game
 
 def extract_team_stat(team):
     '''
@@ -131,28 +114,6 @@ def extract_team_stat(team):
         #TODO: API may have changed, log/inform devs
         return {}
 
-def make_update(game):
-    '''
-    Make an update dict (summarized) for the specified game dict
-    '''
-
-    update = {}
-    try:
-        update['spectators'] = game['spectators']
-        update['players'] = game['players']
-        #Simplify the scoreboard
-        if 'scoreboard' in game:
-            scoreboard = {}
-            scoreboard['duration'] = game['scoreboard']['duration']
-            scoreboard['radiant'] = extract_team_stat(
-                game['scoreboard']['radiant'])
-            scoreboard['dire'] = extract_team_stat(
-                game['scoreboard']['dire'])
-            update['scoreboard'] = scoreboard
-    except KeyError:
-        #TODO: API may have changed, log/inform devs
-        pass
-    return update
 
 class DotaHandler(WebSocketHandler):
 
@@ -168,6 +129,8 @@ class DotaHandler(WebSocketHandler):
     leagues_refcnt = {}
     #Active leagues
     active_leagues = {}
+    #Recently downloaded logos, inform clients
+    logos_to_add = set()
     #All connected WebSocket clients
     clients = set()
 
@@ -191,6 +154,90 @@ class DotaHandler(WebSocketHandler):
             'new_games': new_games,
             'new_leagues': new_leagues,
         })
+
+    @classmethod
+    def make_simple_game(cls, game, update=None):
+        '''
+        Make a summarized game dict without the scoreboard (for new games)
+        If available, include static path to team logo. Otherwise schedule
+        Steam API request to download the team logo.
+        '''
+
+        simple_game = dict(game)
+        try:
+            del simple_game['scoreboard']
+        except KeyError:
+            pass #Games that haven't started have no scoreboard
+        try:
+            add_team_logo(simple_game['radiant_team'])
+        except KeyError:
+            pass
+        try:
+            add_team_logo(simple_game['dire_team'])
+        except KeyError:
+            pass
+        if update is None:
+            update = cls.make_update(game)
+        simple_game.update(update)
+
+        return simple_game
+
+    @classmethod
+    def init_logos(cls, update, game):
+        '''
+        Checks whether new logos were downloaded and need to be
+        made known to the client via an update
+        '''
+
+        def add_to_team(cls, team):
+            team_id = team['team_id']
+            if team_id in cls.logos_to_add:
+                logging.debug("Adding logo URL for team '{}'".format(team_id))
+                add_team_logo(team)
+                cls.logos_to_add.remove(team_id)
+                return True
+            return False
+
+        if 'radiant_team' in game:
+            if add_to_team(cls, game['radiant_team']):
+                update['radiant_team'] = game['radiant_team']
+        if 'dire_team' in game:
+            if add_to_team(cls, game['dire_team']):
+                update['dire_team'] = game['dire_team']
+        
+    @classmethod
+    def make_update(cls, game):
+        '''
+        Make an update dict (summarized) for the specified game dict
+        '''
+
+        update = {}
+        try:
+            update['spectators'] = game['spectators']
+            update['players'] = game['players']
+            #Add team logo URLs if needed
+            cls.init_logos(update, game)
+            #Simplify the scoreboard
+            if 'scoreboard' in game:
+                scoreboard = {}
+                scoreboard['duration'] = game['scoreboard']['duration']
+                scoreboard['radiant'] = extract_team_stat(
+                    game['scoreboard']['radiant'])
+                scoreboard['dire'] = extract_team_stat(
+                    game['scoreboard']['dire'])
+                update['scoreboard'] = scoreboard
+        except KeyError:
+            #TODO: API may have changed, log/inform devs
+            pass
+        return update
+
+    @classmethod
+    def add_team_logo(cls, team_id):
+        '''
+        Send URL of teams logo on the next update packet if required
+        '''
+        logging.debug("Adding {} to logos_to_add".format(team_id))
+        cls.logos_to_add.add(team_id)
 
     @classmethod
     def build_active_leagues(cls):
@@ -237,9 +284,9 @@ class DotaHandler(WebSocketHandler):
                 pass
             active_games[match_id] = game
             #Make compact update dict with minimal info
-            update = make_update(game)
+            update = cls.make_update(game)
             #Summarize the game by removing scoreboard and add update
-            simple_game = make_simple_game(game, update)
+            simple_game = cls.make_simple_game(game, update)
             simple_games[match_id] = simple_game
             #Remove games which are still active, leftover are inactive
             if match_id in cls.active_games:
