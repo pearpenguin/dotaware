@@ -69,35 +69,32 @@ var dota = (function() {
             return undefined;
         }
     };
-    Game.prototype.radiant_player = function(slot) {
+    Game.prototype.player = function(team, slot) {
         try {
-            var id = this.game.scoreboard.radiant.players[slot].account_id;
+            var id = this.game.scoreboard[team].players[slot].account_id;
             return this.game.players[id];
         } catch (e){
             return undefined;
         }
     };
+    Game.prototype.radiant_player = function(slot) {
+        return this.player('radiant', slot);
+    };
     Game.prototype.dire_player = function(slot) {
+        return this.player('dire', slot);
+    };
+    Game.prototype.num_players = function(team) {
         try {
-            var id = this.game.scoreboard.dire.players[slot].account_id;
-            return this.game.players[id];
+            return this.game.scoreboard[team].players.length;
         } catch (e){
-            return undefined;
+            return 0;
         }
     };
     Game.prototype.num_radiant_players = function() {
-        try {
-            return this.game.scoreboard.radiant.players.length;
-        } catch (e){
-            return 0;
-        }
+        return this.num_players('radiant');
     };
     Game.prototype.num_dire_players = function() {
-        try {
-            return this.game.scoreboard.dire.players.length;
-        } catch (e){
-            return 0;
-        }
+        return this.num_players('dire');
     };
     //Return duration as float
     Game.prototype.duration = function() {
@@ -119,47 +116,57 @@ var dota = (function() {
         var secs = Math.floor(duration % 60);
         return mins + "m " + secs + "s";
     };
-    Game.prototype.radiant_logo = function() {
+    Game.prototype.team_logo_url = function(team) {
         try {
-            return this.game.radiant_team.logo_url;
+            return this.game[team].logo_url;
         } catch (e){
             return undefined;
         }
     };
+    Game.prototype.radiant_logo = function() {
+        return this.team_logo_url('radiant_team');
+    };
     Game.prototype.dire_logo = function() {
+        return this.team_logo_url('dire_team');
+    };
+    Game.prototype.team_name = function(team) {
         try {
-            return this.game.dire_team.logo_url;
+            return this.game[team].team_name;
         } catch (e){
             return undefined;
         }
     };
     Game.prototype.radiant_name = function() {
-        try {
-            return this.game.radiant_team.team_name;
-        } catch (e){
-            return undefined;
-        }
+        return this.team_name('radiant_team');
     };
     Game.prototype.dire_name = function() {
+        return this.team_name('dire_team');
+    };
+    Game.prototype.score = function(team) {
         try {
-            return this.game.dire_team.team_name;
+            return this.game.scoreboard[team].score;
         } catch (e){
             return undefined;
         }
     };
     Game.prototype.radiant_score = function() {
-        try {
-            return this.game.scoreboard.radiant.score;
-        } catch (e){
-            return undefined;
-        }
+        return this.score('radiant');
     };
     Game.prototype.dire_score = function() {
+        return this.score('dire');
+    };
+    Game.prototype.tower_state = function(team) {
         try {
-            return this.game.scoreboard.dire.score;
+            return this.game.scoreboard[team].tower_state;
         } catch (e){
-            return undefined;
+            return 0x7FF; //11-bit tower state
         }
+    };
+    Game.prototype.radiant_towers = function() {
+        return this.tower_state('radiant');
+    };
+    Game.prototype.dire_towers = function() {
+        return this.tower_state('dire');
     };
 
     Game.prototype.update = function(update) {
@@ -203,6 +210,25 @@ var dota = (function() {
     };
 
     /* View functions */
+    
+    //TODO: Coordinates of towers and raxes. 
+    //Indexes correspond to the bit in the state value
+    var tower_coords = {
+        radiant: [
+        ],
+        dire: [
+        ],
+    };
+    var rax_coords = {
+        radiant: [
+        ],
+        dire: [
+        ],
+    };
+    //TODO: Render SVG overlay of the minimap (tower/rax states)
+    function v_map_overlay(game) {
+    }
+
     function v_simple_game_table(game) {
 
         //Return rows of players for the game table
