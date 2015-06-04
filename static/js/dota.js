@@ -211,12 +211,39 @@ var dota = (function() {
 
     /* View functions */
     
-    //TODO: Coordinates of towers and raxes. 
+    function Coord(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    //TODO: Coordinates of towers and raxes, assuming 260x260 units
     //Indexes correspond to the bit in the state value
     var tower_coords = {
         radiant: [
+            new Coord(220, 240), //bot 1
+            new Coord(120, 240), //bot 2
+            new Coord(65, 240), //bot 3
+            new Coord(103, 155), //middle 1
+            new Coord(70, 180), //middle 2
+            new Coord(50, 200), //middle 3
+            new Coord(20, 95), //top 1
+            new Coord(20, 145), //top 2
+            new Coord(12, 185), //top 3
+            new Coord(35, 230), //ancient bot
+            new Coord(20, 215), //ancient top
         ],
         dire: [
+            new Coord(240, 160), //bot 1
+            new Coord(245, 124), //bot 2
+            new Coord(245, 82), //bot 3
+            new Coord(150, 123), //middle 1
+            new Coord(175, 92), //middle 2
+            new Coord(200, 68), //middle 3
+            new Coord(45, 20), //top 1
+            new Coord(130, 20), //top 2
+            new Coord(190, 25), //top 3
+            new Coord(235, 45), //ancient bot
+            new Coord(220, 30), //ancient top
         ],
     };
     var rax_coords = {
@@ -225,8 +252,42 @@ var dota = (function() {
         dire: [
         ],
     };
+
+    function v_tower_overlay(coords, tower_state) {
+        var towers = [], coord;
+        for (bit in coords) {
+            coord = coords[bit];
+            //Tower is alive
+            if (tower_state & (1 << bit))
+            {
+                towers.push(m("circle", {
+                    cx: coord.x,
+                    cy: coord.y,
+                    r: 2,
+                }));
+            }
+            //TODO: tower is dead
+        }
+        return towers;
+    }
+
     //TODO: Render SVG overlay of the minimap (tower/rax states)
     function v_map_overlay(game) {
+        var overlay = [];
+        overlay = overlay.concat(
+            v_tower_overlay(tower_coords.radiant, game.radiant_towers()),
+            v_tower_overlay(tower_coords.dire, game.dire_towers())
+            //TODO: raxes
+        );
+        return m("div.overlay-wrap", [
+            m("img.minimap", {
+                src: "/static/img/dota_minimap.png",
+            }),
+            m("svg.overlay.minimap", {
+                //Rax/tower coords are based on 260x260 user units
+                viewBox: "0 0 260 260",
+            }, overlay),
+        ]);
     }
 
     function v_simple_game_table(game) {
@@ -289,6 +350,7 @@ var dota = (function() {
             m("div", game.duration_str()),
             //Team scores and players table
             v_simple_game_table(game),
+            v_map_overlay(game),
         ]);
     }
 
