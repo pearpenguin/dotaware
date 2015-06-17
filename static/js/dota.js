@@ -155,6 +155,19 @@ var dota = (function() {
     Game.prototype.dire_score = function() {
         return this.score('dire');
     };
+    Game.prototype.rax_state = function(team) {
+        try {
+            return this.game.scoreboard[team].barracks_state;
+        } catch (e){
+            return 0x3F; //6-bit rax state
+        }
+    };
+    Game.prototype.radiant_raxes = function() {
+        return this.rax_state('radiant');
+    };
+    Game.prototype.dire_raxes = function() {
+        return this.rax_state('dire');
+    };
     Game.prototype.tower_state = function(team) {
         try {
             return this.game.scoreboard[team].tower_state;
@@ -248,36 +261,64 @@ var dota = (function() {
     };
     var rax_coords = {
         radiant: [
+            new Coord(50, 248), //melee bot
+            new Coord(50, 235), //ranged bot
+            new Coord(45, 215), //melee mid
+            new Coord(35, 205), //ranged mid
+            new Coord(20, 198), //melee top
+            new Coord(8, 198), //ranged top
         ],
         dire: [
+            new Coord(250, 68), //melee bot
+            new Coord(238, 68), //ranged bot
+            new Coord(215, 60), //melee mid
+            new Coord(205, 50), //ranged mid
+            new Coord(200, 30), //melee top
+            new Coord(200, 17), //ranged top
         ],
     };
 
-    function v_tower_overlay(coords, tower_state) {
-        var towers = [], coord;
+    function v_tower(x, y, is_alive) {
+        //TODO: tower is dead
+        return m("circle", {
+            cx: x,
+            cy: y,
+            r: 3,
+        });
+    }
+
+    function v_rax(x, y, is_alive) {
+        //TODO: rax is dead
+        return m("rect", {
+            x: x-3,
+            y: y-3,
+            width: 6,
+            height: 6,
+        });
+    }
+
+    function v_coord_overlay(coords, state, coord_factory) {
+        var v_coords = [], coord;
         for (bit in coords) {
             coord = coords[bit];
-            //Tower is alive
-            if (tower_state & (1 << bit))
-            {
-                towers.push(m("circle", {
-                    cx: coord.x,
-                    cy: coord.y,
-                    r: 2,
-                }));
-            }
-            //TODO: tower is dead
+            v_coords.push(coord_factory(coord.x, coord.y,
+                state & (1 << bit)));
         }
-        return towers;
+        return v_coords;
     }
 
     //TODO: Render SVG overlay of the minimap (tower/rax states)
     function v_map_overlay(game) {
         var overlay = [];
         overlay = overlay.concat(
-            v_tower_overlay(tower_coords.radiant, game.radiant_towers()),
-            v_tower_overlay(tower_coords.dire, game.dire_towers())
-            //TODO: raxes
+            v_coord_overlay(tower_coords.radiant, game.radiant_towers(),
+                v_tower),
+            v_coord_overlay(tower_coords.dire, game.dire_towers(),
+                v_tower),
+            v_coord_overlay(rax_coords.radiant, game.radiant_raxes(),
+                v_rax),
+            v_coord_overlay(rax_coords.dire, game.dire_raxes(),
+                v_rax)
         );
         return m("div.overlay-wrap", [
             m("img.minimap", {
